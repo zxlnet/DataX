@@ -12,14 +12,16 @@ import com.alibaba.fastjson.JSONObject;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.mongodb.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Array;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
  * Created by jianying.wcj on 2015/3/19 0019.
+ * Modified by zxlnet on 2016/04/12
+ * 1. Support queryKey,queryKeyValueFormat,queryInterval
+ * 2. Fill empty string to the field which does exists in mongodb collection
  */
 public class MongoDBReader extends Reader {
 
@@ -80,7 +82,8 @@ public class MongoDBReader extends Reader {
          */
         private int pageSize = 1000;
 
-        @Override
+        @SuppressWarnings({ "deprecation", "unused", "rawtypes" })
+		@Override
         public void startRead(RecordSender recordSender) {
 
             if(batchSize == null ||
@@ -105,17 +108,71 @@ public class MongoDBReader extends Reader {
                 if (i == pageCount) {
                         pageCount = modCount;
                 }
-                DBCursor dbCursor = col.find().sort(obj).skip(skipCount.intValue()).limit(pageSize);
+                
+                Date now = new Date();
+                BasicDBObject queryObj = new BasicDBObject();  
+                
+                String queryInterval = readerSliceConfig.getString(KeyConstant.QUERY_INTERVAL).toLowerCase();
+                
+                if (queryInterval.equals("hourly"))
+                {
+	                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH");
+	                String startTime=df.format(new Date(now.getTime() - 60*60*1000)) +":00:00";
+	                String endTime=df.format(now) +":00:00";
+	                
+	                System.out.println("Date Range >>> " + startTime + " - " + endTime );
+	                
+	                queryObj.put(readerSliceConfig.getString(KeyConstant.QUERY_KEY), new BasicDBObject("$gte", startTime).append("$lt", endTime));
+	            }
+                else if (queryInterval.equals("daily"))
+                {
+                	SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+                	SimpleDateFormat dfFull = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                	SimpleDateFormat targetdf = new SimpleDateFormat(readerSliceConfig.getString(KeyConstant.QUERY_KEY_VALUE_FORMAT));
+                	
+                	
+					Date startTime;
+					String sStartTime="";
+					try {
+						startTime = dfFull.parse(df.format(new Date(now.getTime() - 24*60*60*1000)) +" 00:00:00");
+						sStartTime = targetdf.format(startTime);
+					} catch (ParseException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+	                
+	                
+					Date endTime;
+					String sEndTime="";
+					try {
+						endTime = dfFull.parse(df.format(now) +" 00:00:00");
+						sEndTime = targetdf.format(endTime);
+					} catch (ParseException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+	                
+					System.out.println("Date Range >>> " + sStartTime + " - " + sEndTime );
+					
+	                queryObj.put(readerSliceConfig.getString(KeyConstant.QUERY_KEY), new BasicDBObject("$gte", sStartTime).append("$lt", sEndTime));
+                }
+                
+                DBCursor dbCursor = col.find(queryObj).sort(obj).skip(skipCount.intValue()).limit(pageSize);
+                
                 while (dbCursor.hasNext()) {
                     DBObject item = dbCursor.next();
                     Record record = recordSender.createRecord();
                     Iterator columnItera = mongodbColumnMeta.iterator();
                     while (columnItera.hasNext()) {
-                        JSONObject column = (JSONObject)columnItera.next();
+                    	JSONObject column = (JSONObject)columnItera.next();
                         Object tempCol = item.get(column.getString(KeyConstant.COLUMN_NAME));
+                    	
                         if (tempCol == null) {
-                            continue;
+                        	//fill empty string if the field does not exists in mongodb
+                        	record.addColumn(new StringColumn(""));
+                        	continue;
                         }
+                        
                         if (tempCol instanceof Double) {
                             record.addColumn(new DoubleColumn((Double) tempCol));
                         } else if (tempCol instanceof Boolean) {

@@ -5,7 +5,9 @@ import com.alibaba.datax.common.util.Configuration;
 import com.alibaba.datax.plugin.reader.mongodbreader.KeyConstant;
 import com.alibaba.datax.plugin.reader.mongodbreader.MongoDBReaderErrorCode;
 import com.mongodb.MongoClient;
+import com.mongodb.MongoClientURI;
 import com.mongodb.MongoCredential;
+import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
 
 import java.net.UnknownHostException;
@@ -15,17 +17,46 @@ import java.util.List;
 
 /**
  * Created by jianying.wcj on 2015/3/17 0017.
+ * Modified by zxlnet on 2016/04/12
+ * 1. Support connect MongoDB through MongoDBURI
+ * 2. default ReadPreference => secondaryPreferred
  */
 public class MongoUtil {
 
     public static MongoClient initMongoClient(Configuration conf) {
+    	if (conf.getString(KeyConstant.MONGO_ADDRESS).toLowerCase().equals("mongoclient")){
+    		return getMongoClient(conf);
+    	}
+    	else
+    	{
+    		return getMongoClientViaURI(conf);
+    	}
+    }
+    
+    private static MongoClient getMongoClientViaURI(Configuration conf) {
+        try {
+        	System.out.println(conf.getString(KeyConstant.MONGO_ADDRESS));
+        	MongoClientURI uri = new MongoClientURI(conf.getString(KeyConstant.MONGO_ADDRESS));
+        	
+        	MongoClient client = new MongoClient(uri);
+        	
+        	return client;
+        } catch (NumberFormatException e) {
+            throw DataXException.asDataXException(MongoDBReaderErrorCode.ILLEGAL_VALUE,"不合法参数");
+        } catch (Exception e) {
+            throw DataXException.asDataXException(MongoDBReaderErrorCode.UNEXCEPT_EXCEPTION,"未知异常");
+        }   
+    }
 
-        List<Object> addressList = conf.getList(KeyConstant.MONGO_ADDRESS);
+    public static MongoClient getMongoClient(Configuration conf) {
+    	List<Object> addressList = conf.getList(KeyConstant.MONGO_ADDRESS);
         if(addressList == null || addressList.size() <= 0) {
             throw DataXException.asDataXException(MongoDBReaderErrorCode.ILLEGAL_VALUE,"不合法参数");
         }
         try {
-            return new MongoClient(parseServerAddress(addressList));
+        	MongoClient client = new MongoClient(parseServerAddress(addressList));
+        	client.setReadPreference(ReadPreference.secondaryPreferred());
+        	return client;
         } catch (UnknownHostException e) {
             throw DataXException.asDataXException(MongoDBReaderErrorCode.ILLEGAL_ADDRESS,"不合法的地址");
         } catch (NumberFormatException e) {
@@ -34,9 +65,8 @@ public class MongoUtil {
             throw DataXException.asDataXException(MongoDBReaderErrorCode.UNEXCEPT_EXCEPTION,"未知异常");
         }
     }
-
+    
     public static MongoClient initCredentialMongoClient(Configuration conf,String userName,String password,String database) {
-
         List<Object> addressList = conf.getList(KeyConstant.MONGO_ADDRESS);
         if(!isHostPortPattern(addressList)) {
             throw DataXException.asDataXException(MongoDBReaderErrorCode.ILLEGAL_VALUE,"不合法参数");
@@ -53,6 +83,7 @@ public class MongoUtil {
             throw DataXException.asDataXException(MongoDBReaderErrorCode.UNEXCEPT_EXCEPTION,"未知异常");
         }
     }
+    
     /**
      * 判断地址类型是否符合要求
      * @param addressList
@@ -89,9 +120,7 @@ public class MongoUtil {
 
     public static void main(String[] args) {
         try {
-            ArrayList hostAddress = new ArrayList();
-            hostAddress.add("127.0.0.1:27017");
-            System.out.println(MongoUtil.isHostPortPattern(hostAddress));
+        	
         } catch (Exception e) {
             e.printStackTrace();
         }

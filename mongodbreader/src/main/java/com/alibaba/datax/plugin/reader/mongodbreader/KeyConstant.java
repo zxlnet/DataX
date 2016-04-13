@@ -2,6 +2,7 @@ package com.alibaba.datax.plugin.reader.mongodbreader;
 
 /**
  * Created by jianying.wcj on 2015/3/17 0017.
+ * Modified by zxlnet 2016/4/12, added queryKey,queryInterval,queryKeyValueFormat
  */
 public class KeyConstant {
     /**
@@ -64,4 +65,20 @@ public class KeyConstant {
     public static boolean isArrayType(String type) {
         return ARRAY_TYPE.equals(type);
     }
+    /**
+     * Mongo连接方式
+     */
+    public static final String MONGO_CONNECT_TYPE = "connectType";
+    /**
+     * 数据过滤关键字，目前只支持单关键字
+     */
+    public static final String QUERY_KEY = "queryKey";
+    /**
+     * 过滤值的格式
+     */
+    public static final String QUERY_KEY_VALUE_FORMAT = "queryKeyValueFormat";
+    /**
+     * 抓去数据的间隔
+     */
+    public static final String QUERY_INTERVAL = "queryInterval";
 }
