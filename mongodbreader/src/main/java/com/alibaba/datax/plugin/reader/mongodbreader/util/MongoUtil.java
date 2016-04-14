@@ -4,6 +4,7 @@ import com.alibaba.datax.common.exception.DataXException;
 import com.alibaba.datax.common.util.Configuration;
 import com.alibaba.datax.plugin.reader.mongodbreader.KeyConstant;
 import com.alibaba.datax.plugin.reader.mongodbreader.MongoDBReaderErrorCode;
+import com.mongodb.BasicDBObject;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
 import com.mongodb.MongoCredential;
@@ -11,8 +12,11 @@ import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
 
 import java.net.UnknownHostException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -20,6 +24,7 @@ import java.util.List;
  * Modified by zxlnet on 2016/04/12
  * 1. Support connect MongoDB through MongoDBURI
  * 2. default ReadPreference => secondaryPreferred
+ * 3. add a new method: getQueries
  */
 public class MongoUtil {
 
@@ -117,7 +122,55 @@ public class MongoUtil {
         }
         return addressList;
     }
-
+    
+    /*根据配置生成查询条件*/
+    /*added by zxlnet on 2016-04-14*/
+    public static BasicDBObject getQueries(Configuration conf){
+    	
+    	BasicDBObject queryObj = new BasicDBObject();  
+        
+        String queryInterval = conf.getString(KeyConstant.QUERY_INTERVAL).toLowerCase();
+        
+        Date now = new Date();
+        if (queryInterval.equals("hourly"))
+        {
+        	/*同步前一小时数据*/
+            String startTime = getDateStart(new Date(now.getTime() - 60*60*1000));
+            String endTime = getDateStart(now);
+            queryObj.put(conf.getString(KeyConstant.QUERY_KEY), new BasicDBObject("$gte", startTime).append("$lt", endTime));
+            return queryObj;
+        }
+        else if (queryInterval.equals("daily"))
+        {
+        	/*同步前一天的数据*/
+			String sStartTime=formatDate(conf.getString(KeyConstant.QUERY_KEY_VALUE_FORMAT),getDateStart(new Date(now.getTime() - 24*60*60*1000)));
+			String sEndTime=formatDate(conf.getString(KeyConstant.QUERY_KEY_VALUE_FORMAT),getDateStart(now));
+            queryObj.put(conf.getString(KeyConstant.QUERY_KEY), new BasicDBObject("$gte", sStartTime).append("$lt", sEndTime));
+            return queryObj;
+        }
+        
+        return null;
+    }
+    
+    private static String getDateStart(Date d){
+        return new SimpleDateFormat("yyyy-MM-dd HH:00:00").format(d) ;
+    }
+    
+    private static String formatDate(String targetFormat, String d){
+    	SimpleDateFormat targetdf = new SimpleDateFormat(targetFormat);
+    	
+    	String r="";
+    	
+    	try {
+    		r = targetdf.format(new SimpleDateFormat("yyyy-MM-dd HH:00:00").parse(d));
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	
+    	return r;
+    }
+    
     public static void main(String[] args) {
         try {
         	

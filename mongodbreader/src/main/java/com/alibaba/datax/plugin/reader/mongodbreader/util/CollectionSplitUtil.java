@@ -7,11 +7,15 @@ import com.alibaba.datax.plugin.reader.mongodbreader.MongoDBReaderErrorCode;
 import com.google.common.base.Strings;
 import com.mongodb.*;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 /**
  * Created by jianying.wcj on 2015/3/19 0019.
+ * Modified by zxlnet, 加入抓去数据的查询条件,根据实际的数据行数来计算batchSize
  */
 public class CollectionSplitUtil {
 
@@ -32,7 +36,11 @@ public class CollectionSplitUtil {
         DB db = mongoClient.getDB(dbName);
         DBCollection collection = db.getCollection(collectionName);
 
-        List<Entry> countInterval = doSplitInterval(adviceNumber,collection);
+        
+        BasicDBObject queryObj = MongoUtil.getQueries(originalSliceConfig);
+        int ttlCount = collection.find(queryObj).count();
+        		
+        List<Entry> countInterval = doSplitInterval(adviceNumber,ttlCount);
         for(Entry interval : countInterval) {
             Configuration conf = originalSliceConfig.clone();
             conf.set(KeyConstant.SKIP_COUNT,interval.interval);
@@ -47,6 +55,33 @@ public class CollectionSplitUtil {
         List<Entry> intervalCountList = new ArrayList<Entry>();
 
         long totalCount = collection.count();
+        if(totalCount < 0) {
+            return intervalCountList;
+        }
+        // 100 6 => 16 mod 4
+        long batchSize = totalCount/adviceNumber;
+        for(int i = 0; i < adviceNumber; i++) {
+            Entry entry = new Entry();
+            /**
+             * 这个判断确认不会丢失最后一页数据，
+             * 因为 totalCount/adviceNumber 不整除时，如果不做判断会丢失最后一页
+             */
+            if(i == (adviceNumber - 1)) {
+                entry.batchSize = batchSize + adviceNumber;
+            } else {
+                entry.batchSize = batchSize;
+            }
+            entry.interval = batchSize * i;
+            intervalCountList.add(entry);
+        }
+        return intervalCountList;
+    }
+    
+    private static List<Entry> doSplitInterval(int adviceNumber,int totalRecordCount) {
+
+        List<Entry> intervalCountList = new ArrayList<Entry>();
+
+        long totalCount = totalRecordCount;
         if(totalCount < 0) {
             return intervalCountList;
         }

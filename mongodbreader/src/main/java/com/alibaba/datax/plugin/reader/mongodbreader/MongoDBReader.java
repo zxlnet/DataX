@@ -99,7 +99,13 @@ public class MongoDBReader extends Reader {
 
             long pageCount = batchSize / pageSize;
             long modCount = batchSize % pageSize;
-
+            
+            System.out.println("batchSize=" + batchSize);
+            System.out.println("pageCount="+pageCount);
+            System.out.println("modCount="+modCount);
+            System.out.println("skipCount="+skipCount);
+            System.out.println("pageSize="+pageSize);
+            
             for(int i = 0; i <= pageCount; i++) {
                 skipCount += i * pageSize;
                 if(modCount == 0 && i == pageCount) {
@@ -109,53 +115,8 @@ public class MongoDBReader extends Reader {
                         pageCount = modCount;
                 }
                 
-                Date now = new Date();
-                BasicDBObject queryObj = new BasicDBObject();  
                 
-                String queryInterval = readerSliceConfig.getString(KeyConstant.QUERY_INTERVAL).toLowerCase();
-                
-                if (queryInterval.equals("hourly"))
-                {
-	                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH");
-	                String startTime=df.format(new Date(now.getTime() - 60*60*1000)) +":00:00";
-	                String endTime=df.format(now) +":00:00";
-	                
-	                System.out.println("Date Range >>> " + startTime + " - " + endTime );
-	                
-	                queryObj.put(readerSliceConfig.getString(KeyConstant.QUERY_KEY), new BasicDBObject("$gte", startTime).append("$lt", endTime));
-	            }
-                else if (queryInterval.equals("daily"))
-                {
-                	SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-                	SimpleDateFormat dfFull = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                	SimpleDateFormat targetdf = new SimpleDateFormat(readerSliceConfig.getString(KeyConstant.QUERY_KEY_VALUE_FORMAT));
-                	
-                	
-					Date startTime;
-					String sStartTime="";
-					try {
-						startTime = dfFull.parse(df.format(new Date(now.getTime() - 24*60*60*1000)) +" 00:00:00");
-						sStartTime = targetdf.format(startTime);
-					} catch (ParseException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-	                
-	                
-					Date endTime;
-					String sEndTime="";
-					try {
-						endTime = dfFull.parse(df.format(now) +" 00:00:00");
-						sEndTime = targetdf.format(endTime);
-					} catch (ParseException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-	                
-					System.out.println("Date Range >>> " + sStartTime + " - " + sEndTime );
-					
-	                queryObj.put(readerSliceConfig.getString(KeyConstant.QUERY_KEY), new BasicDBObject("$gte", sStartTime).append("$lt", sEndTime));
-                }
+                BasicDBObject queryObj = MongoUtil.getQueries(readerSliceConfig);
                 
                 DBCursor dbCursor = col.find(queryObj).sort(obj).skip(skipCount.intValue()).limit(pageSize);
                 
