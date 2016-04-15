@@ -135,25 +135,35 @@ public class MongoUtil {
         if (queryInterval.equals("hourly"))
         {
         	/*同步前一小时数据*/
-            String startTime = getDateStart(new Date(now.getTime() - 60*60*1000));
-            String endTime = getDateStart(now);
+            String startTime = getHourStart(new Date(now.getTime() - 60*60*1000));
+            String endTime = getHourStart(now);
+            
+            //System.out.println("Date range:" + startTime + " "  +  endTime);
+            
             queryObj.put(conf.getString(KeyConstant.QUERY_KEY), new BasicDBObject("$gte", startTime).append("$lt", endTime));
             return queryObj;
         }
         else if (queryInterval.equals("daily"))
         {
         	/*同步前一天的数据*/
-			String sStartTime=formatDate(conf.getString(KeyConstant.QUERY_KEY_VALUE_FORMAT),getDateStart(new Date(now.getTime() - 24*60*60*1000)));
-			String sEndTime=formatDate(conf.getString(KeyConstant.QUERY_KEY_VALUE_FORMAT),getDateStart(now));
-            queryObj.put(conf.getString(KeyConstant.QUERY_KEY), new BasicDBObject("$gte", sStartTime).append("$lt", sEndTime));
+			String startTime=formatDate(conf.getString(KeyConstant.QUERY_KEY_VALUE_FORMAT),getDateStart(new Date(now.getTime() - 24*60*60*1000)));
+			String endTime=formatDate(conf.getString(KeyConstant.QUERY_KEY_VALUE_FORMAT),getDateStart(now));
+			
+			//System.out.println("Date range:" + startTime + " "  +  endTime);
+			
+            queryObj.put(conf.getString(KeyConstant.QUERY_KEY), new BasicDBObject("$gte", startTime).append("$lt", endTime));
             return queryObj;
         }
         
         return null;
     }
     
-    private static String getDateStart(Date d){
+    private static String getHourStart(Date d){
         return new SimpleDateFormat("yyyy-MM-dd HH:00:00").format(d) ;
+    }
+    
+    private static String getDateStart(Date d){
+        return new SimpleDateFormat("yyyy-MM-dd 00:00:00").format(d) ;
     }
     
     private static String formatDate(String targetFormat, String d){
@@ -162,7 +172,7 @@ public class MongoUtil {
     	String r="";
     	
     	try {
-    		r = targetdf.format(new SimpleDateFormat("yyyy-MM-dd HH:00:00").parse(d));
+    		r = targetdf.format(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(d));
 		} catch (ParseException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -174,6 +184,7 @@ public class MongoUtil {
     public static void main(String[] args) {
         try {
         	
+			
         } catch (Exception e) {
             e.printStackTrace();
         }

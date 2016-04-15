@@ -22,6 +22,9 @@ import java.util.*;
  * Modified by zxlnet on 2016/04/12
  * 1. Support queryKey,queryKeyValueFormat,queryInterval
  * 2. Fill empty string to the field which does exists in mongodb collection
+ * 
+ * Modified by zxlnet on 2016/04/14
+ * 修正Task分片读取代码的逻辑错误
  */
 public class MongoDBReader extends Reader {
 
@@ -107,14 +110,11 @@ public class MongoDBReader extends Reader {
             System.out.println("pageSize="+pageSize);
             
             for(int i = 0; i <= pageCount; i++) {
-                skipCount += i * pageSize;
-                if(modCount == 0 && i == pageCount) {
-                    break;
-                }
                 if (i == pageCount) {
-                        pageCount = modCount;
+                        pageSize = new Long(modCount).intValue();
                 }
                 
+                System.out.println(i + "-" +skipCount);
                 
                 BasicDBObject queryObj = MongoUtil.getQueries(readerSliceConfig);
                 
@@ -162,6 +162,9 @@ public class MongoDBReader extends Reader {
                     }
                     recordSender.sendToWriter(record);
                 }
+                
+                skipCount += pageSize;
+
             }
         }
 

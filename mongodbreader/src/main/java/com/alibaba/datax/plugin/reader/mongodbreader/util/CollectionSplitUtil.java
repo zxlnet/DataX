@@ -39,6 +39,7 @@ public class CollectionSplitUtil {
         
         BasicDBObject queryObj = MongoUtil.getQueries(originalSliceConfig);
         int ttlCount = collection.find(queryObj).count();
+        System.out.println("Total Count:" + ttlCount);
         		
         List<Entry> countInterval = doSplitInterval(adviceNumber,ttlCount);
         for(Entry interval : countInterval) {
