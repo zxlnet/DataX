@@ -13,7 +13,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.mongodb.*;
 
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -25,6 +24,13 @@ import java.util.*;
  * 
  * Modified by zxlnet on 2016/04/14
  * 修正Task分片读取代码的逻辑错误
+ * 
+ * Modified by zxlnet 2016/04/20
+ * 增加JSON，JSON Array,Dummy,Constant几种column type。column增加value，目前只对constant类型栏位生效
+ * JSON反序相应的field会加在主表
+ * JSONARRAY反序后会逐条保存
+ * Dummy用来填出字段数避免报错
+ * Constant直接填充value值，一般用来放默认值
  */
 public class MongoDBReader extends Reader {
 
@@ -104,17 +110,15 @@ public class MongoDBReader extends Reader {
             long modCount = batchSize % pageSize;
             
             System.out.println("batchSize=" + batchSize);
-            System.out.println("pageCount="+pageCount);
-            System.out.println("modCount="+modCount);
-            System.out.println("skipCount="+skipCount);
-            System.out.println("pageSize="+pageSize);
+            System.out.println("pageCount=" + pageCount);
+            System.out.println("modCount=" + modCount);
+            System.out.println("skipCount=" + skipCount);
+            System.out.println("pageSize=" + pageSize);
             
             for(int i = 0; i <= pageCount; i++) {
                 if (i == pageCount) {
                         pageSize = new Long(modCount).intValue();
                 }
-                
-                System.out.println(i + "-" +skipCount);
                 
                 BasicDBObject queryObj = MongoUtil.getQueries(readerSliceConfig);
                 
@@ -124,14 +128,22 @@ public class MongoDBReader extends Reader {
                     DBObject item = dbCursor.next();
                     Record record = recordSender.createRecord();
                     Iterator columnItera = mongodbColumnMeta.iterator();
+                    
                     while (columnItera.hasNext()) {
                     	JSONObject column = (JSONObject)columnItera.next();
                         Object tempCol = item.get(column.getString(KeyConstant.COLUMN_NAME));
-                    	
                         if (tempCol == null) {
-                        	//fill empty string if the field does not exists in mongodb
-                        	record.addColumn(new StringColumn(""));
-                        	continue;
+                        	if (KeyConstant.isDummyType(column.getString(KeyConstant.COLUMN_TYPE)) ||
+                        			KeyConstant.isConstantType(column.getString(KeyConstant.COLUMN_TYPE)))
+                        	{
+                        		tempCol = new Object();//dummy column
+                        	}
+                        	else
+                        	{
+	                        	//fill empty string if the field does not exists in mongodb
+	                        	record.addColumn(new StringColumn(""));
+	                        	continue;
+                        	}
                         }
                         
                         if (tempCol instanceof Double) {
@@ -155,17 +167,73 @@ public class MongoDBReader extends Reader {
                                     String tempArrayStr = Joiner.on(splitter).join(array);
                                     record.addColumn(new StringColumn(tempArrayStr));
                                 }
+                            } else if(KeyConstant.isJsonType(column.getString(KeyConstant.COLUMN_TYPE))) {
+                            	HashMap jsonMap = JSON.parseObject(tempCol.toString(), HashMap.class);
+                            	Iterator iter = jsonMap.entrySet().iterator();
+                            	while (iter.hasNext()) {
+                        	       Map.Entry entry = (Map.Entry) iter.next();
+                        	       Object key = entry.getKey();
+                        	       Object val = entry.getValue();
+                        		   record.addColumn(new StringColumn(val.toString()));
+                            	}
+                            } else if(KeyConstant.isJsonArrayType(column.getString(KeyConstant.COLUMN_TYPE))) {
+                            	JSONArray jsons = JSON.parseArray(tempCol.toString());
+                            	
+                            	if (jsons.size()==0) {
+                            		record=null;
+                            		break;
+                            	}
+                            	
+                            	for(int idx=0;idx<jsons.size();idx++){
+                                    Record rec = cloneRecord(recordSender,record);
+                                    HashMap jsonMap = JSON.parseObject(jsons.get(idx).toString(), HashMap.class);
+                                	Iterator iter = jsonMap.entrySet().iterator();
+                                	while (iter.hasNext()) {
+                            	       Map.Entry entry = (Map.Entry) iter.next();
+                            	       Object key = entry.getKey();
+                            	       Object val = entry.getValue();
+                            		   rec.addColumn(new StringColumn(val.toString()));
+                                	}
+                                	recordSender.sendToWriter(rec);
+                            	}
+                            	
+                            	record = null;
+                            	
+                            } else if (KeyConstant.isDummyType(column.getString(KeyConstant.COLUMN_TYPE))) {
+                            	continue;
+                            } else if (KeyConstant.isConstantType(column.getString(KeyConstant.COLUMN_TYPE))) {
+                            	
+                            	if (KeyConstant.isValueNow(column.getString(KeyConstant.COLUMN_VALUE))){
+                            		record.addColumn(new StringColumn(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())));
+                            	}
+                            	else
+                            	{
+                            		record.addColumn(new StringColumn(column.getString(KeyConstant.COLUMN_VALUE)));
+                            	}
                             } else {
                                 record.addColumn(new StringColumn(tempCol.toString()));
                             }
                         }
                     }
-                    recordSender.sendToWriter(record);
+                    
+                    if (record!=null && record.getColumnNumber()==this.mongodbColumnMeta.size()){
+                    	recordSender.sendToWriter(record);
+                    }
                 }
                 
                 skipCount += pageSize;
 
             }
+        }
+        
+        private Record cloneRecord(RecordSender recordSender,Record src){
+        	Record tgt = recordSender.createRecord();
+        	
+        	for(int i=0;i<src.getColumnNumber();i++){
+        		tgt.addColumn(src.getColumn(i));
+        	}
+        	
+        	return tgt;
         }
 
         @Override

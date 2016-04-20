@@ -3,7 +3,11 @@ package com.alibaba.datax.plugin.reader.mongodbreader;
 /**
  * Created by jianying.wcj on 2015/3/17 0017.
  * Modified by zxlnet 2016/4/12, added queryKey,queryInterval,queryKeyValueFormat
- */
+
+ * Modified by zxlnet 2016/04/20
+ * 增加JSON，JSON Array,Dummy,Constant几种column type。column增加value，目前只对constant类型栏位生效
+*/
+
 public class KeyConstant {
     /**
      * 数组类型
@@ -81,4 +85,69 @@ public class KeyConstant {
      * 抓去数据的间隔
      */
     public static final String QUERY_INTERVAL = "queryInterval";
+    
+    /**
+     * JSON类型
+     */
+    public static final String JSON_TYPE = "json";
+    /**
+     * 判断是否为JSON类型
+     * @param type 数据类型
+     * @return
+     */
+    public static boolean isJsonType(String type) {
+        return JSON_TYPE.equals(type);
+    }
+    /**
+     * JSON Array类型
+     */
+    public static final String JSONARRAY_TYPE = "jsonarray";
+    /**
+     * 判断是否为JSON Array类型
+     * @param type 数据类型
+     * @return
+     */
+    public static boolean isJsonArrayType(String type) {
+        return JSONARRAY_TYPE.equals(type);
+    }
+    /**
+     * Dummy类型
+     */
+    public static final String DUMMY_TYPE = "dummy";
+    /**
+     * 判断是否为Dummy类型
+     * @param type 数据类型
+     * @return
+     */
+    public static boolean isDummyType(String type) {
+        return DUMMY_TYPE.equals(type);
+    }
+    /**
+     * Constant类型
+     */
+    public static final String CONSTANT_TYPE = "constant";
+    /**
+     * 判断是否为Constant类型
+     * @param type 数据类型
+     * @return
+     */
+    public static boolean isConstantType(String type) {
+        return CONSTANT_TYPE.equals(type);
+    }
+    /**
+     * 每个列的默认值
+     */
+    public static final String COLUMN_VALUE = "value";
+    /**
+     * now类型
+     */
+    public static final String VALUE_NOW = "now";
+    /**
+     * 判断是否为Now类型
+     * @param type 数据类型
+     * @return
+     */
+    public static boolean isValueNow(String type) {
+        return VALUE_NOW.equals(type);
+    }
 }

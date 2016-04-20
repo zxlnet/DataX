@@ -1,9 +1,12 @@
 package com.alibaba.datax.plugin.reader.mongodbreader.util;
 
+import com.alibaba.datax.common.element.StringColumn;
 import com.alibaba.datax.common.exception.DataXException;
 import com.alibaba.datax.common.util.Configuration;
 import com.alibaba.datax.plugin.reader.mongodbreader.KeyConstant;
 import com.alibaba.datax.plugin.reader.mongodbreader.MongoDBReaderErrorCode;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.mongodb.BasicDBObject;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
@@ -17,7 +20,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by jianying.wcj on 2015/3/17 0017.
@@ -183,8 +189,19 @@ public class MongoUtil {
     
     public static void main(String[] args) {
         try {
+        	JSONArray jsons = JSON.parseArray("[ { \"packageName\" : \"com.sohu.inputmethod.sogou\" , \"launchCount\" : 0.0 , \"usageTime\" : 850809.0} , { \"packageName\" : \"com.android.documentsui\" , \"launchCount\" : 0.0 , \"usageTime\" : 3664.0} ]");
         	
-			
+        	for(int idx=0;idx<jsons.size();idx++){
+            	HashMap jsonMap = JSON.parseObject(jsons.get(idx).toString(), HashMap.class);
+            	Iterator iter = jsonMap.entrySet().iterator();
+            	while (iter.hasNext()) {
+        	       Map.Entry entry = (Map.Entry) iter.next();
+        	       Object key = entry.getKey();
+        	       Object val = entry.getValue();
+        	       
+        	       System.out.println(key + "-" + val);
+            	}
+        	}
         } catch (Exception e) {
             e.printStackTrace();
         }
