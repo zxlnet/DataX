@@ -5,6 +5,8 @@ import com.alibaba.datax.common.plugin.RecordReceiver;
 import com.alibaba.datax.common.spi.Writer;
 import com.alibaba.datax.common.util.Configuration;
 import com.alibaba.datax.plugin.unstructuredstorage.writer.Constant;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.google.common.collect.Sets;
 import org.apache.commons.io.Charsets;
 import org.apache.commons.io.IOUtils;
@@ -13,8 +15,17 @@ import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 
+/*************************************
+ * Modified notes:
+ * 1. 增加一个pathSuffix参数，根据该参数在path后动态添加一个子目录
+ * 2. 目前只支持以日期格式结尾的后缀。
+ * 
+ * @author zxlnet on 2016-04-29
+ *
+ */
 
 public class HdfsWriter extends Writer {
     public static class Job extends Writer.Job {
@@ -56,7 +67,11 @@ public class HdfsWriter extends Writer {
                 throw DataXException.asDataXException(HdfsWriterErrorCode.ILLEGAL_VALUE, message);
             }
             //path
-            this.path = this.writerSliceConfig.getNecessaryValue(Key.PATH, HdfsWriterErrorCode.REQUIRED_VALUE);
+            //modified by zxlnet on 2016-04-29, append path suffix
+            this.path = appendPathSuffix(this.writerSliceConfig.getNecessaryValue(Key.PATH, HdfsWriterErrorCode.REQUIRED_VALUE));
+            
+            
+            
             if(!path.startsWith("/")){
                 String message = String.format("请检查参数path:[%s],需要配置为绝对路径", path);
                 LOG.error(message);
@@ -138,7 +153,18 @@ public class HdfsWriter extends Writer {
             }
         }
 
-        @Override
+        private String appendPathSuffix(String path)
+        {
+        	String pathSuffix = this.writerSliceConfig.getString(Key.PATH_SUFFIX);
+        	if (pathSuffix==null || pathSuffix.equals(""))
+        	{
+        		return path;
+        	}
+        	
+        	return path + "/" + new SimpleDateFormat(pathSuffix).format(new Date());
+        }
+
+		@Override
         public void prepare() {
             //若路径已经存在，检查path是否是目录
             if(hdfsHelper.isPathexists(path)){
@@ -368,6 +394,14 @@ public class HdfsWriter extends Writer {
         @Override
         public void destroy() {
 
+        }
+    }
+    
+    public static void main(String[] args) {
+        try {
+        	
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }

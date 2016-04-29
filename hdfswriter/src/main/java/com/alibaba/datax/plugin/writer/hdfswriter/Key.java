@@ -2,6 +2,9 @@ package com.alibaba.datax.plugin.writer.hdfswriter;
 
 /**
  * Created by shf on 15/10/8.
+ * 
+ * Modifed by zxlnet on 2016-04-29
+ * added a new key pathSuffix
  */
 public class Key {
     // must have
@@ -28,5 +31,6 @@ public class Key {
     // not must, not default \N
     public static final String NULL_FORMAT = "nullFormat";
 
-
+    //optional
+    public static final String PATH_SUFFIX="pathSuffix";
 }
