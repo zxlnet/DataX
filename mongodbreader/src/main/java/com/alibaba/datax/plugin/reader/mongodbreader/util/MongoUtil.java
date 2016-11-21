@@ -1,5 +1,10 @@
 package com.alibaba.datax.plugin.reader.mongodbreader.util;
 
+import com.alibaba.datax.common.element.BoolColumn;
+import com.alibaba.datax.common.element.DateColumn;
+import com.alibaba.datax.common.element.DoubleColumn;
+import com.alibaba.datax.common.element.LongColumn;
+import com.alibaba.datax.common.element.Record;
 import com.alibaba.datax.common.element.StringColumn;
 import com.alibaba.datax.common.exception.DataXException;
 import com.alibaba.datax.common.util.Configuration;
@@ -7,6 +12,9 @@ import com.alibaba.datax.plugin.reader.mongodbreader.KeyConstant;
 import com.alibaba.datax.plugin.reader.mongodbreader.MongoDBReaderErrorCode;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.mongodb.BasicDBObject;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
@@ -133,7 +141,7 @@ public class MongoUtil {
     /*added by zxlnet on 2016-04-14*/
     public static BasicDBObject getQueries(Configuration conf){
     	
-    	BasicDBObject queryObj = new BasicDBObject();  
+    	BasicDBObject queryObj = new BasicDBObject(); 
         
         String queryInterval = conf.getString(KeyConstant.QUERY_INTERVAL).toLowerCase();
         
@@ -155,14 +163,23 @@ public class MongoUtil {
 			String startTime=formatDate(conf.getString(KeyConstant.QUERY_KEY_VALUE_FORMAT),getDateStart(new Date(now.getTime() - 24*60*60*1000)));
 			String endTime=formatDate(conf.getString(KeyConstant.QUERY_KEY_VALUE_FORMAT),getDateStart(now));
 			
-			//System.out.println("Date range:" + startTime + " "  +  endTime);
-			
             queryObj.put(conf.getString(KeyConstant.QUERY_KEY), new BasicDBObject("$gte", startTime).append("$lt", endTime));
+            return queryObj;
+        } 
+        else if (queryInterval.equals("range"))
+        {
+        	String startTime = conf.getString(KeyConstant.START_TIME);
+        	String endTime = conf.getString(KeyConstant.END_TIME);
+            queryObj.put(conf.getString(KeyConstant.QUERY_KEY), new BasicDBObject("$gte", startTime).append("$lt", endTime));
+            
             return queryObj;
         }
         
-        return null;
+        queryObj.put(conf.getString(KeyConstant.QUERY_KEY), new BasicDBObject("$gte", "2011-01-01 00:00:00").append("$lt", "2011-01-01 00:00:00"));
+        
+        return queryObj;
     }
+    
     
     private static String getHourStart(Date d){
         return new SimpleDateFormat("yyyy-MM-dd HH:00:00").format(d) ;
@@ -185,6 +202,29 @@ public class MongoUtil {
 		}
     	
     	return r;
+    }
+    
+    /*根据配置生成查询的字段*/
+    /*added by zxlnet on 2016-04-14*/
+    public static BasicDBObject getFields(Configuration conf,JSONArray mongodbColumnMeta){
+    	
+    	BasicDBObject fieldObj = new BasicDBObject(); 
+    	
+    	@SuppressWarnings("rawtypes")
+		Iterator columnItera = mongodbColumnMeta.iterator();
+        
+        while (columnItera.hasNext()) {
+        	JSONObject column = (JSONObject)columnItera.next();
+            
+            	if (!KeyConstant.isDummyType(column.getString(KeyConstant.COLUMN_TYPE)) &&
+            			!KeyConstant.isConstantType(column.getString(KeyConstant.COLUMN_TYPE)) &
+            			!KeyConstant.isArrayType(column.getString(KeyConstant.COLUMN_TYPE)))
+            	{
+            		fieldObj.put(column.getString(KeyConstant.COLUMN_NAME), 1);
+            	}
+            }
+        
+        return fieldObj;
     }
     
     public static void main(String[] args) {

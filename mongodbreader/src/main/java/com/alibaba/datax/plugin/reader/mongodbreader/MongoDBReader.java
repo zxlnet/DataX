@@ -122,7 +122,18 @@ public class MongoDBReader extends Reader {
                 
                 BasicDBObject queryObj = MongoUtil.getQueries(readerSliceConfig);
                 
-                DBCursor dbCursor = col.find(queryObj).sort(obj).skip(skipCount.intValue()).limit(pageSize);
+            	BasicDBObject fieldObj = MongoUtil.getFields(readerSliceConfig,mongodbColumnMeta);
+                
+                DBCursor dbCursor = null;
+
+                String indexHint=readerSliceConfig.getString(KeyConstant.INDEX_HINT);
+                
+                if (indexHint!=null && !indexHint.equals("")){	
+                	dbCursor = col.find(queryObj,fieldObj).hint(indexHint).skip(skipCount.intValue()).limit(pageSize);
+                }
+                else {
+                	dbCursor = col.find(queryObj,fieldObj).skip(skipCount.intValue()).limit(pageSize);
+                }
                 
                 while (dbCursor.hasNext()) {
                     DBObject item = dbCursor.next();
@@ -131,6 +142,7 @@ public class MongoDBReader extends Reader {
                     
                     while (columnItera.hasNext()) {
                     	JSONObject column = (JSONObject)columnItera.next();
+                    	//System.out.println(item.get(column.getString(KeyConstant.COLUMN_NAME)));
                         Object tempCol = item.get(column.getString(KeyConstant.COLUMN_NAME));
                         if (tempCol == null) {
                         	if (KeyConstant.isDummyType(column.getString(KeyConstant.COLUMN_TYPE)) ||
@@ -178,6 +190,8 @@ public class MongoDBReader extends Reader {
                             	}
                             } else if(KeyConstant.isJsonArrayType(column.getString(KeyConstant.COLUMN_TYPE))) {
                             	JSONArray jsons = JSON.parseArray(tempCol.toString());
+                            	
+                            	//System.out.println(record.getColumnNumber());
                             	
                             	if (jsons.size()==0) {
                             		record=null;

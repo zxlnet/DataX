@@ -150,4 +150,17 @@ public class KeyConstant {
     public static boolean isValueNow(String type) {
         return VALUE_NOW.equals(type);
     }
+    /**
+     * mongoDB查询index hint
+     */
+    public static final String INDEX_HINT = "indexHint";
+    
+    /**
+     * 数据抓去起始时间，仅在queryInterval=range时有效
+     */
+    public static final String START_TIME = "startTime";
+    /**
+     * 数据抓去结束时间，仅在queryInterval=range时有效
+     */
+    public static final String END_TIME = "endTime";
 }
